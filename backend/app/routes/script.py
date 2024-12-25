@@ -9,6 +9,7 @@ import time
 import pandas as pd
 import urllib.parse
 import concurrent.futures
+import json
 
 def setup_driver(chromedriver_path):
     service = Service(chromedriver_path)
@@ -72,6 +73,19 @@ def get_links_for_titles(titles):
     driver.quit()  
     return image_urls
 
+def get_links_with_api(titles):
+    image_urls = [None] * len(titles)
+    for i, title in enumerate(titles):
+        encoded_movie_name = urllib.parse.quote(title)
+        api_link = f"http://www.omdbapi.com/?t={encoded_movie_name}&apikey=197659c0"
+        response = requests.get(api_link)
+        poster = json.loads(response.text)
+        if "Poster" in poster:
+            image_urls[i] = poster["Poster"]
+        else:
+            print(title)
+            image_urls[i] = None
+    return image_urls
 
 def download_images_for_titles(titles):
     with concurrent.futures.ThreadPoolExecutor() as executor:

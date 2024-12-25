@@ -8,7 +8,7 @@ from sqlalchemy.orm import sessionmaker, relationship, Session
 from datetime import datetime, timedelta
 from typing import Optional
 from pydantic import BaseModel
-from script import get_links_for_titles
+from script import get_links_for_titles, get_links_with_api
 import random
 
 router = APIRouter(prefix="/user", tags=["user"])
@@ -217,6 +217,8 @@ def get_trending(current_user: User = Depends(get_current_user), db: Session = D
     'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTnYv_RiokOGFx6iq0olUvZg3rbkUnp4_i_Hg&s',
     'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQWG_eMkfLTDY-OhqSTWEJEkLerd_ur1uYBng&s']
 
+    # trending_urls = get_links_with_api(titles)
+    
     for i, movie in enumerate(trending):
         movie_data = movie.__dict__.copy()
         movie_data["image_url"] = trending_urls[i]

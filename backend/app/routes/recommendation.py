@@ -13,6 +13,7 @@ from collections import Counter
 from datetime import datetime, timedelta
 from typing import Optional
 import pandas as pd
+from script import get_links_for_titles, get_links_with_api
 import numpy as np
 import random
 
@@ -166,8 +167,19 @@ def get_recommendations(current_user: User, preference: str):
 
 @router.get('/get-liked-recommendations', status_code=200)
 def liked_recommendations(current_user: User = Depends(get_current_user)):
-    return get_recommendations(current_user, "liked")
-
+    liked_rec = get_recommendations(current_user, "liked")["recommendations"]
+    
+    titles = []
+    for i in range(len(liked_rec)):
+        titles.append(liked_rec[i]['title'])
+    image_urls = get_links_with_api(titles)
+    recommendations = []
+    for i in range(len(liked_rec)):
+        liked_rec[i]["image_url"] = image_urls[i]
+        if image_urls[i]:
+            recommendations.append(liked_rec[i])
+    
+    return recommendations
 
 @router.get('/get-watched-recommendations', status_code=200)
 def watched_recommendations(current_user: User = Depends(get_current_user)):
