@@ -60,44 +60,24 @@ def get_images_from_google(driver, delay, max_images, movie_name):
     
     return list(image_urls)
 
-def download_image(download_path, url, file_name):
-    try:
-        image_content = requests.get(url).content
-        image_file = io.BytesIO(image_content)
-        image = Image.open(image_file)
-        file_path = download_path + file_name
 
-        with open(file_path, "wb") as f:
-            image.save(f, "JPEG")
+def get_links_for_titles(titles):
+    driver = setup_driver('./chromedriver')
+    image_urls = [None] * len(titles)
+    for i, title in enumerate(titles):
+        image_url = get_images_from_google(driver, 1, 3, title)[0]
+        print(image_url)
+        image_urls[i] = image_url
 
-        print(f"Downloaded {file_name} successfully")
-    except Exception as e:
-        print(f"FAILED to download {file_name} -", e)
+    driver.quit()  
+    return image_urls
+
 
 def download_images_for_titles(titles):
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = []
         
-        
         for title in titles:
-            futures.append(executor.submit(download_image_for_title, title))
-        
+            futures.append(executor.submit(get_links_for_titles, title))
         
         concurrent.futures.wait(futures)
-
-def download_image_for_title(title):
-    driver = setup_driver('backend/app/static/chromedriver')
-    image_urls = get_images_from_google(driver, 1, 3, title)  
-
-    
-    for i, url in enumerate(image_urls):
-        download_image("imgs/", url, f"{title}_{i}.jpg")
-    
-    driver.quit()  
-
-
-df = pd.read_csv('backend/app/data/netflix_titles.csv')
-titles = df.title.tolist()
-
-
-download_images_for_titles(titles)
