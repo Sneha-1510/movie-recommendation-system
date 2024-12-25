@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+sqlalchemy
+databases
+pydantic
+bcrypt
+python-jose
+passlib
+collections
+sklearn
+pandas
+numpy
+matplotlib
