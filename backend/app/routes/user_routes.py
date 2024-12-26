@@ -166,17 +166,18 @@ def get_by_genre(genre: str,current_user: User = Depends(get_current_user), db: 
         Show.listed_in.ilike(f"%{genre}%"),
         not_(Show.show_id.in_(watched_show_ids))
     ).all()
-    titles = []
-    movies = []
-    for show in shows[:30]:
-        titles.append(show.title)
-    image_urls = get_links_with_api(titles)
-    for i, show in enumerate(shows[:20]):
-        movie_data = show.__dict__.copy()
-        if image_urls[i]:
-            movie_data["image_url"] = image_urls[i]
-            movies.append(movie_data)
-    return movies
+    # titles = []
+    # movies = []
+    # for show in shows[:30]:
+    #     titles.append(show.title)
+    # image_urls = get_links_with_api(titles)
+    # for i, show in enumerate(shows[:20]):
+    #     movie_data = show.__dict__.copy()
+    #     if image_urls[i]:
+    #         movie_data["image_url"] = image_urls[i]
+    #         movies.append(movie_data)
+    # return movies
+    return shows[:20]
 
 
 @router.get("/get-random-movies/")

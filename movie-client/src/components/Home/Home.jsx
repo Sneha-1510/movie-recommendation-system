@@ -9,6 +9,7 @@ function Home() {
   const [trending, setTrending] = useState([]);
   const [liked, setLiked] = useState([]);
   const [selectedGenre, setSelectedGenre] = useState('trending');
+  const [posterUrls, setPosterUrls] = useState({}); // State for movie posters
 
   const navigate = useNavigate();
   const profilePopupRef = useRef(null);
@@ -89,6 +90,37 @@ function Home() {
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, [showProfilePopup]);
 
+  const fetchMoviePoster = async (title) => {
+    try {
+      const encodedTitle = encodeURIComponent(title);
+      const url = `http://www.omdbapi.com/?t=${encodedTitle}&apikey=197659c0`;
+      const response = await axios.get(url);
+
+      if (response.data && response.data.Poster) {
+        return response.data.Poster;
+      } else {
+        return `https://via.placeholder.com/200x300?text=${title}`;
+      }
+    } catch (error) {
+      console.error("Error fetching movie poster:", error.message);
+      return `https://via.placeholder.com/200x300?text=${title}`;
+    }
+  };
+
+  useEffect(() => {
+    const loadPosters = async () => {
+      const posters = {};
+      for (const movie of trending) {
+        posters[movie.title] = await fetchMoviePoster(movie.title);
+      }
+      setPosterUrls((prev) => ({ ...prev, ...posters }));
+    };
+
+    if (trending.length > 0) {
+      loadPosters();
+    }
+  }, [trending]);
+
   const handleProfileClick = () => setShowProfilePopup((prev) => !prev);
   const handleSignOut = () => {
     localStorage.removeItem('token');
@@ -148,7 +180,10 @@ function Home() {
                 key={movie.id}
                 onClick={() => handleMovieClick(movie)}
               >
-                <img src={`${movie.image_url}`} alt={movie.title} />
+                <img
+                  src={posterUrls[movie.title] || 'https://via.placeholder.com/200x300?text=Loading...'}
+                  alt={movie.title}
+                />
                 <p title={movie.title}>
                   {movie.title.length > 25
                     ? movie.title.slice(0, 25) + '...'
