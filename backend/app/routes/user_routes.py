@@ -9,7 +9,7 @@ from sqlalchemy.sql import not_
 from datetime import datetime, timedelta
 from typing import Optional
 from pydantic import BaseModel
-from script import get_links_for_titles, get_links_with_api
+# from script import get_links_for_titles, get_links_with_api
 import random
 
 router = APIRouter(prefix="/user", tags=["user"])
