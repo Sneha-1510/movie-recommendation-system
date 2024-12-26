@@ -8,8 +8,13 @@ function Home() {
   const [userDetails, setUserDetails] = useState({ username: '', email: '' });
   const [trending, setTrending] = useState([]);
   const [liked, setLiked] = useState([]);
-  const [selectedGenre, setSelectedGenre] = useState('trending');
-  const [posterUrls, setPosterUrls] = useState({}); // State for movie posters
+  const [likedPosterUrls, setLikedPosterUrls] = useState([]);
+  const [selectedGenre, setSelectedGenre] = useState('crime');
+  const [posterUrls, setPosterUrls] = useState({});
+  const [isFetchingPosters, setIsFetchingPosters] = useState(false);
+  const [likedMovies, setLikedMovies] = useState([]);
+  const [likeImg, setLikeImg] = useState('./outline_heart.png');
+  const [newLike, setNewLike] = useState(false);
 
   const navigate = useNavigate();
   const profilePopupRef = useRef(null);
@@ -41,11 +46,22 @@ function Home() {
       .catch(() => navigate('/login'));
 
     axios
-      .get('http://127.0.0.1:8000/services/get-liked-recommendations', {
-        headers: { Authorization: `Bearer ${token}` },
+      .get(
+        'http://127.0.0.1:8000/user/get-liked',
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      .then((response) => {
+        const liked_movies = response.data;
+        for (const movie of liked_movies) {
+          setLikedMovies((prevState) => [...prevState, movie.show_id]);
+        }
       })
-      .then((response) => setLiked(response.data))
-      .catch(console.error);
+      .catch((error) => {
+        console.error('Error adding movie to liked list:', error);
+        alert('Something went wrong. Please try again later.');
+      });
+
+
   }, [navigate]);
 
   useEffect(() => {
@@ -66,29 +82,17 @@ function Home() {
       } catch (error) {
         console.error(`Error fetching ${selectedGenre} movies:`, error);
       }
+
+      axios
+        .get('http://127.0.0.1:8000/services/get-liked-recommendations', {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        .then((response) => setLiked(response.data))
+        .catch(console.error);
     };
 
     fetchMovies();
-  }, [selectedGenre]);
-
-  useEffect(() => {
-    const handleOutsideClick = (event) => {
-      if (
-        profilePopupRef.current &&
-        !profilePopupRef.current.contains(event.target)
-      ) {
-        setShowProfilePopup(false);
-      }
-    };
-
-    if (showProfilePopup) {
-      document.addEventListener('mousedown', handleOutsideClick);
-    } else {
-      document.removeEventListener('mousedown', handleOutsideClick);
-    }
-
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, [showProfilePopup]);
+  }, [selectedGenre, newLike]);
 
   const fetchMoviePoster = async (title) => {
     try {
@@ -109,11 +113,13 @@ function Home() {
 
   useEffect(() => {
     const loadPosters = async () => {
+      setIsFetchingPosters(true);
       const posters = {};
       for (const movie of trending) {
         posters[movie.title] = await fetchMoviePoster(movie.title);
+        setPosterUrls((prev) => ({ ...prev, ...posters }));
       }
-      setPosterUrls((prev) => ({ ...prev, ...posters }));
+      setIsFetchingPosters(false);
     };
 
     if (trending.length > 0) {
@@ -121,17 +127,65 @@ function Home() {
     }
   }, [trending]);
 
+  useEffect(() => {
+    const loadPosters = async () => {
+      setIsFetchingPosters(true);
+      const posters = {};
+      for (const movie of liked) {
+        posters[movie.title] = await fetchMoviePoster(movie.title);
+        setLikedPosterUrls((prev) => ({ ...prev, ...posters }));
+      }
+      setIsFetchingPosters(false);
+    };
+
+    if (liked.length > 0) {
+      loadPosters();
+    }
+  }, [liked]);
+
   const handleProfileClick = () => setShowProfilePopup((prev) => !prev);
   const handleSignOut = () => {
     localStorage.removeItem('token');
     navigate('/login');
   };
+
   const handleMovieClick = (movie) => {
-    navigate(`/movie/${encodeURIComponent(movie.title)}`, { state: { movie } });
+    navigate(`/movie/${encodeURIComponent(movie.title)}`, {
+      state: { movie, imageUrl: posterUrls[movie.title] || likedPosterUrls[movie.title] || '' },
+    });
   };
+
   const handleGenreChange = (event) => {
     setSelectedGenre(event.target.value);
   };
+
+  const handleLike = (movie) => {
+    const token = localStorage.getItem('token');
+
+    axios
+      .post(
+        'http://127.0.0.1:8000/user/add-liked',
+        { show_id: movie.show_id },
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      .then(() => {
+        setLikedMovies((prev) => [...prev, movie.show_id]);
+        setNewLike(!newLike);
+      })
+      .catch((error) => {
+        console.error('Error adding movie to liked list:', error);
+        alert('Something went wrong. Please try again later.');
+      });
+  };
+
+  const getImgSrc = (show_id) => {
+    console.log(show_id);
+    if (likedMovies.includes(show_id)) {
+      return './fill_heart.png';
+    } else {
+      return './outline_heart.png';
+    }
+  }
 
   return (
     <div className="home-container">
@@ -175,14 +229,22 @@ function Home() {
         <div className="movie-cards">
           {trending.length > 0
             ? trending.map((movie) => (
-              <div
-                className="movie-card"
-                key={movie.id}
-                onClick={() => handleMovieClick(movie)}
-              >
+              <div className="movie-card" key={movie.id}>
+                <div className="like-button" onClick={() => handleLike(movie)}>
+                  <img
+                    src={getImgSrc(movie.show_id)}
+                    alt="Like icon"
+                    height="10px"
+                  />
+                </div>
                 <img
-                  src={posterUrls[movie.title] || 'https://via.placeholder.com/200x300?text=Loading...'}
+                  src={
+                    posterUrls[movie.title] ||
+                    'https://via.placeholder.com/200x300?text=Loading...'
+                  }
                   alt={movie.title}
+                  onClick={() => handleMovieClick(movie)}
+                  className="poster"
                 />
                 <p title={movie.title}>
                   {movie.title.length > 25
@@ -201,19 +263,37 @@ function Home() {
               </div>
             ))}
         </div>
+
       </div>
 
       <div className="movie-section">
         <h2>You May Like</h2>
+        {liked.length === 0 ? <>
+          <p>No movies found in your liked list.</p>
+          <p>
+            To add movies to your liked list, watch a movie, or click on the like button
+            next to the movie title.
+          </p>
+        </> : <></>}
         <div className="movie-cards">
           {liked.length > 0
             ? liked.map((movie) => (
               <div
                 className="movie-card"
                 key={movie.id}
-                onClick={() => handleMovieClick(movie)}
               >
-                <img src={`${movie.image_url}`} alt={movie.title} />
+                <div className="like-button" onClick={() => handleLike(movie)}>
+                  <img
+                    src={getImgSrc(movie.show_id)}
+                    alt="Like icon"
+                    height="10px"
+                  />
+                </div>
+                <img
+                  src={likedPosterUrls[movie.title] || 'https://via.placeholder.com/200x300?text=Loading...'}
+                  alt={movie.title}
+                  onClick={() => handleMovieClick(movie)}
+                />
                 <p title={movie.title}>
                   {movie.title.length > 25
                     ? movie.title.slice(0, 25) + '...'

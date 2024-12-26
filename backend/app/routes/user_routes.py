@@ -147,13 +147,13 @@ def all_movies(current_user: User = Depends(get_current_user), db: Session = Dep
     return movies
 
 @router.get("/get-watched/")
-def add_watched(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    watched = db.query(MoviesWatched).all()
+def get_watched(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    watched = db.query(MoviesWatched).filter(current_user.user_id == MoviesWatched.user_id).all()
     return watched
 
 @router.get("/get-liked/")
-def add_liked(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    liked = db.query(MoviesLiked).all()
+def get_liked(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    liked = db.query(MoviesLiked).filter(current_user.user_id == MoviesLiked.user_id).all()
     return liked
 
 @router.get("/get-genre-{genre}")

@@ -6,6 +6,7 @@ import './Movie.css';
 function Movie() {
     const { state } = useLocation();
     const movie = state.movie;
+    const imageUrl = state.imageUrl;
 
     const [isWatched, setIsWatched] = useState(false);
     const [isLiked, setIsLiked] = useState(false);
@@ -50,7 +51,7 @@ function Movie() {
     return (
         <div className="movie-container">
             <div className="movie-image">
-                <img src={movie.image_url} alt={movie.title} />
+                <img src={imageUrl} alt={movie.title} />
             </div>
             <div className="movie-details">
                 <h1 className="movie-title">{movie.title}</h1>
