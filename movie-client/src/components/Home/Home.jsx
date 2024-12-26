@@ -246,11 +246,12 @@ function Home() {
                   onClick={() => handleMovieClick(movie)}
                   className="poster"
                 />
-                <p title={movie.title}>
+                <p title={movie.title} style={{color:"white"}}>
                   {movie.title.length > 25
                     ? movie.title.slice(0, 25) + '...'
                     : movie.title}
                 </p>
+                
               </div>
             ))
             : [...Array(10)].map((_, idx) => (

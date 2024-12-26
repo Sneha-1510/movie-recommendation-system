@@ -110,9 +110,13 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
 @router.post("/add-user/")
 def add_user(username: str, password: str, email: str):
     hashed_password = get_password_hash(password)
-    user = User(username=username, password=hashed_password, email=email)
-    db.add(user)
-    db.commit()
+    try:
+        user = User(username=username, password=hashed_password, email=email)
+        db.add(user)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="An error occurred while creating the user")
     return {"message": "User created successfully"}
 
 @router.put("/update-user-details/")

@@ -92,13 +92,13 @@
   }
   
   .movie-card img {
-    width: 100%;
-    height: 85%;
+    width: 90%;
+    height: 75%;
     object-fit: cover;
     overflow: hidden;
   }
   
-  .movie-title {
+  /* .movie-title {
     font-size: 14px;
     margin: 5px 0;
     color: #ddd;
@@ -106,7 +106,7 @@
     white-space: nowrap;
     text-overflow: scroll;
     border-radius: 4px;
-  }
+  } */
   
   .movie-card:hover {
       cursor: pointer;
