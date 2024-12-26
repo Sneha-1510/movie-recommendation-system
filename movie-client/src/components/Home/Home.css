@@ -103,7 +103,7 @@
     color: #ddd;
     overflow: hidden;
     white-space: nowrap;
-    text-overflow: ellipsis;
+    text-overflow: scroll;
     border-radius: 4px;
   }
   

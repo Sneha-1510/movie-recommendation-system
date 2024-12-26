@@ -5,6 +5,7 @@ from passlib.context import CryptContext
 from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, Date, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship, Session
+from sqlalchemy.sql import not_
 from datetime import datetime, timedelta
 from typing import Optional
 from pydantic import BaseModel
@@ -53,6 +54,7 @@ class Show(Base):
     release_year = Column(Integer)
     rating = Column(String)
     date_added = Column(String)
+    description = Column(String)
 
 class MoviesWatched(Base):
     __tablename__ = "movies_watched"
@@ -139,12 +141,50 @@ def add_liked(show_data: ShowIDRequest, current_user: User = Depends(get_current
     db.commit()
     return {"message": "Added to liked list"}
 
+@router.get("/get-movies")
+def all_movies(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    movies = db.query(Show).all()
+    return movies
+
+@router.get("/get-watched/")
+def add_watched(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    watched = db.query(MoviesWatched).all()
+    return watched
+
+@router.get("/get-liked/")
+def add_liked(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    liked = db.query(MoviesLiked).all()
+    return liked
+
+@router.get("/get-genre-{genre}")
+def get_by_genre(genre: str,current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    watched_show_ids = db.query(MoviesWatched.show_id).filter(
+        MoviesWatched.user_id == current_user.user_id
+    ).subquery()
+    
+    shows = db.query(Show).filter(
+        Show.listed_in.ilike(f"%{genre}%"),
+        not_(Show.show_id.in_(watched_show_ids))
+    ).all()
+    titles = []
+    movies = []
+    for show in shows[:30]:
+        titles.append(show.title)
+    image_urls = get_links_with_api(titles)
+    for i, show in enumerate(shows[:20]):
+        movie_data = show.__dict__.copy()
+        if image_urls[i]:
+            movie_data["image_url"] = image_urls[i]
+            movies.append(movie_data)
+    return movies
+
+
 @router.get("/get-random-movies/")
 def get_random_movies():
     movies = db.query(Show).all()
     if not movies:
         raise HTTPException(status_code=404, detail="No movies found")
-    return random.sample(movies, min(5, len(movies)))
+    return random.sample(movies, min(15, len(movies)))
 
 @router.get("/get-movies-by-genre/")
 def get_movies_by_genre(genre: str):
@@ -223,5 +263,4 @@ def get_trending(current_user: User = Depends(get_current_user), db: Session = D
         movie_data = movie.__dict__.copy()
         movie_data["image_url"] = trending_urls[i]
         movies_with_images.append(movie_data)
-    
     return movies_with_images
