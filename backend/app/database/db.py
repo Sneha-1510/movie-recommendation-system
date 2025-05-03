@@ -3,14 +3,17 @@ import pandas as pd
 import os
 import sys
 
-sys.path.append(os.path.abspath(os.path.join('./backend/app')))
+# Get the absolute path to the backend directory
+current_dir = os.path.dirname(os.path.abspath(__file__))
+backend_dir = os.path.abspath(os.path.join(current_dir, '..', '..'))
+sys.path.append(backend_dir)
 
-from schemas.movie_schema import create_shows_table, create_movies_watched_table, create_users_table, create_movies_liked_table
+from app.schemas.movie_schema import create_shows_table, create_movies_watched_table, create_users_table, create_movies_liked_table
 
 conn = sqlite3.connect('database.db')
 cursor = conn.cursor()
 
-csv_file = os.path.abspath('./backend/app/data/netflix_titles.csv')
+csv_file = os.path.abspath('./app/data/netflix_titles.csv')
 
 df = pd.read_csv(csv_file)
 
