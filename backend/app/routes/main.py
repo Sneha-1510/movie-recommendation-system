@@ -2,10 +2,8 @@ from fastapi import FastAPI
 
 from fastapi.middleware.cors import CORSMiddleware
 
-
-
-import user_routes
-import recommendation
+from . import user_routes
+from . import recommendation
 
 app = FastAPI()
 

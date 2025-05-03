@@ -12,23 +12,33 @@ const SignUp = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-  
-    // const formData = new URLSearchParams();
-    // formData.append('username', username);
-    // formData.append('password', password);
-    // formData.append('email', email);
 
     try {
-      const response = await axios.post(`http://127.0.0.1:8000/user/add-user?username=${username}&password=${password}&email=${email}`);
-  
-      alert('SignUp successful!');
-      console.log(response.data);
+      const response = await axios.post('http://127.0.0.1:8000/user/add-user/', {
+        username: username,
+        password: password,
+        email: email
+      }, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.data.message === "User created successfully") {
+        alert('SignUp successful!');
+        // Redirect to login page or home page
+        window.location.href = '/login';
+      }
     } catch (error) {
-      setErrorMessage('SignUp Failed! Try Again!');
+      if (error.response && error.response.status === 400) {
+        setErrorMessage('Username or email already exists');
+      } else {
+        setErrorMessage('SignUp Failed! Try Again!');
+      }
       console.error(error);
     }
   };
-  
+
 
   return (
     <div className="signup-container">
@@ -62,7 +72,7 @@ const SignUp = () => {
           </button>
         </form>
         <p className="signup-footer">
-          Already have an account? <NavLink to="/login" style={{color: "red"}}>Log In now</NavLink>.
+          Already have an account? <NavLink to="/login" style={{ color: "red" }}>Log In now</NavLink>.
         </p>
       </div>
     </div>

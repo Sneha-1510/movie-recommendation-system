@@ -10,11 +10,17 @@ from datetime import datetime, timedelta
 from typing import Optional
 from pydantic import BaseModel
 # from script import get_links_for_titles, get_links_with_api
+import os
 import random
 
 router = APIRouter(prefix="/user", tags=["user"])
 
-DATABASE_URL = "sqlite:///../database/database.db"
+# Get the absolute path to the database file
+current_dir = os.path.dirname(os.path.abspath(__file__))
+backend_dir = os.path.abspath(os.path.join(current_dir, '..', '..'))
+db_path = os.path.join(backend_dir, 'database.db')
+DATABASE_URL = f"sqlite:///{db_path}"
+
 Base = declarative_base()
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -77,6 +83,11 @@ class UserUpdate(BaseModel):
 class ShowIDRequest(BaseModel):
     show_id: int
 
+class UserCreate(BaseModel):
+    username: str
+    password: str
+    email: str
+
 Base.metadata.create_all(bind=engine)
 
 def verify_password(plain_password, hashed_password):
@@ -108,16 +119,16 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         raise credentials_exception
 
 @router.post("/add-user/")
-def add_user(username: str, password: str, email: str):
-    hashed_password = get_password_hash(password)
+def add_user(user: UserCreate):
+    hashed_password = get_password_hash(user.password)
     try:
-        user = User(username=username, password=hashed_password, email=email)
-        db.add(user)
+        new_user = User(username=user.username, password=hashed_password, email=user.email)
+        db.add(new_user)
         db.commit()
+        return {"message": "User created successfully"}
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail="An error occurred while creating the user")
-    return {"message": "User created successfully"}
+        raise HTTPException(status_code=400, detail="Username or email already exists")
 
 @router.put("/update-user-details/")
 def update_user_details(user_update: UserUpdate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
