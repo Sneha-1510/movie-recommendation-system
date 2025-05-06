@@ -1,143 +1,149 @@
-# Movie Recommendation System 🎥🎮
+# Movie Recommendation System
 
-Welcome to the **Movie Recommendation System** project! This project is a comprehensive solution for movie enthusiasts, enabling personalized recommendations based on genres and user interactions such as liking or watching movies. Built using cutting-edge technologies like FastAPI for the backend and ReactJS for the frontend, this project demonstrates a seamless combination of machine learning, database management, and modern web development.
+A full-stack application for movie recommendations built with FastAPI (backend) and React (frontend).
 
----
+## Prerequisites
 
-## 🖊️ Table of Contents
-1. [Project Overview](#project-overview)
-2. [Technologies Used](#technologies-used)
-3. [How the Project Works](#how-the-project-works)
-    - [Dataset & Preprocessing](#dataset--preprocessing)
-    - [Database Schema](#database-schema)
-4. [Running the Project](#running-the-project)
-5. [How to Use the Application](#how-to-use-the-application)
-6. [Screenshots](#screenshots)
+- Python 3.8 or higher
+- pip (Python package installer)
+- Node.js and npm
+- Netflix titles CSV file (netflix_titles.csv) in the backend/app/data directory
 
----
+## Setup Instructions
 
-## Project Overview
+### Backend Setup
 
-This application is designed to recommend movies to users based on their preferences. It leverages a **FastAPI backend** for efficient data handling and a **ReactJS frontend** for a smooth user experience. Users can:
-- Sign up and log in securely.
-- Browse movies by genre.
-- Like or "watch" movies to receive tailored recommendations.
-- Enjoy an intuitive interface for seamless interaction.
-
----
-
-## Technologies Used
-
-### Backend:
-- **Language:** Python 🐍
-- **Framework:** FastAPI 🚀
-- **Database:** SQLite (for local development)
-
-### Frontend:
-- **Language:** JavaScript
-- **Framework:** ReactJS ⚛️
-- **Styling:** CSS
-
-### Additional Tools:
-- **Uvicorn**: To run the FastAPI server.
-- **SQLAlchemy**: For ORM and database interactions.
-- **npm**: For managing frontend dependencies.
-
----
-
-## How the Project Works
-
-### Dataset & Preprocessing
-1. **Dataset**:
-   - Collected from reliable sources containing metadata like movie title, genre, and release date.
-   - Includes user interaction data to simulate recommendations.
-
-2. **Preprocessing**:
-   - Cleaned and formatted dataset.
-   - Converted dates into a standard format (`%B %d, %Y`).
-   - Processed genres into a relational structure for better querying.
-
----
-
-### Database Schema
-The SQLite database contains the following tables:
-- **Users**: Stores user credentials (username, password hash).
-- **Movies**: Holds movie metadata (title, genre, date added, etc.).
-- **UserInteractions**: Tracks likes, watches, and other user activities.
-
----
-
-## Running the Project
-
-Follow these steps to set up and run the project on your local machine:
-
-### Backend
-1. **Navigate to the backend directory**:
+1. **Create and Activate Virtual Environment**
    ```bash
+   # Navigate to backend directory
    cd backend
+
+   # Create virtual environment
+   python -m venv venv
+
+   # Activate virtual environment
+   # On Windows:
+   .\venv\Scripts\activate
+   # On Unix or MacOS:
+   source venv/bin/activate
    ```
-2. **Install dependencies**:
+
+2. **Install Dependencies**
    ```bash
    pip install -r requirements.txt
    ```
-3. **Set up the database**:
-   ```bash
-   cd app/database
-   python db.py
-   ```
-4. **Start the server**:
-   ```bash
-   cd ../routes
-   uvicorn main:app --reload
-   ```
 
-### Frontend
-1. **Navigate to the frontend directory**:
+3. **Database Setup**
+   - First, run the database initialization script to create and populate the database:
+     ```bash
+     python app/database/db.py
+     ```
+   - This script will:
+     - Create the SQLite database file (`database.db`)
+     - Create all necessary tables (users, shows, movies_watched, movies_liked)
+     - Populate the shows table with data from the Netflix titles CSV
+   - Make sure you have write permissions in the backend directory
+   - The database file will be created in the backend directory
+
+4. **Environment Variables**
+   - Create a `.env` file in the backend directory with the following variables:
+     ```
+     SECRET_KEY=your_secret_key_here
+     ALGORITHM=HS256
+     ACCESS_TOKEN_EXPIRE_MINUTES=30
+     ```
+
+5. **Start the Backend Server**
    ```bash
-   cd movie-client
+   # Make sure you're in the backend directory
+   python run.py
    ```
-2. **Install dependencies**:
+   - The server will start at `http://localhost:8000`
+   - API documentation will be available at:
+     - Swagger UI: `http://localhost:8000/docs`
+     - ReDoc: `http://localhost:8000/redoc`
+
+### Frontend Setup
+
+1. **Install Dependencies**
    ```bash
+   # Navigate to frontend directory
+   cd movie-client
+
+   # Install dependencies
    npm install
    ```
-3. **Run the frontend server**:
+
+2. **Start the Frontend Development Server**
    ```bash
    npm start
    ```
+   - The frontend will start at `http://localhost:3000`
 
----
+## Usage Instructions
 
-## How to Use the Application
+1. **Sign Up**
+   - Open `http://localhost:3000` in your browser
+   - Click on "Sign Up" to create a new account
+   - Fill in your details (username, email, password)
+   - Submit the form to create your account
 
-1. **Create an Account**: Sign up with a unique username and password.
-2. **Login**: Use your credentials to access the app.
-3. **Explore Movies**:
-   - Browse movies sorted by genre.
-   - Interact with movies (like or "watch").
-4. **Get Recommendations**:
-   - Personalized movie recommendations will appear below based on your activity.
+2. **Login**
+   - After signing up, you'll be redirected to the login page
+   - Enter your username and password
+   - Click "Login" to access the application
 
----
+3. **Using the Application**
+   - Browse movies and shows
+   - Like or mark movies as watched
+   - Get personalized recommendations based on your preferences
+   - Search for movies by genre, rating, or year
+   - View your liked and watched movies
 
-## Screenshots
+## Project Structure
 
-### Login Page
+```
+movie-recommendation-system/
+├── backend/
+│   ├── app/
+│   │   ├── routes/
+│   │   │   ├── main.py
+│   │   │   ├── user_routes.py
+│   │   │   └── recommendation.py
+│   │   ├── database/
+│   │   │   └── db.py
+│   │   ├── data/
+│   │   │   └── netflix_titles.csv
+│   │   ├── models.py
+│   │   └── __init__.py
+│   ├── database.db
+│   ├── requirements.txt
+│   ├── run.py
+│   └── README.md
+└── movie-client/
+    ├── public/
+    ├── src/
+    ├── package.json
+    └── README.md
+```
 
-![Login Page](movie-client/public/login_screenshot.png)
+## Troubleshooting
 
----
+1. **Backend Issues**
+   - Ensure you've run `db.py` first to create and populate the database
+   - Check if the database file exists in the backend directory
+   - Ensure the database file has proper write permissions
+   - Check if the database path in the code matches your system
+   - Verify that all Python dependencies are installed correctly
+   - Ensure the Netflix titles CSV file is present in the app/data directory
 
-### Home Page
+2. **Frontend Issues**
+   - Make sure Node.js and npm are installed correctly
+   - Clear npm cache if needed: `npm cache clean --force`
+   - Delete node_modules and package-lock.json, then run `npm install` again
+   - Check if the backend server is running and accessible
 
-![Home Page](movie-client/public/home_screenshot.png)
-
----
-
-## 🌟 Features to Add
-- **User Profiles**: A personalized dashboard with watch history.
-- **Advanced Filtering**: Filter by release year, rating, and more.
-- **Social Features**: Share recommendations with friends.
-
----
-
-Enjoy exploring your movie recommendations! 🎥🍿
+3. **Authentication Issues**
+   - Check if the SECRET_KEY in your .env file matches the one in the code
+   - Verify that the token is being sent correctly in the Authorization header
+   - Clear browser cache and cookies if having login issues
