@@ -3,89 +3,63 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from sqlalchemy import create_engine, Column, ForeignKey, Integer, String, DateTime, Date
-from sqlalchemy.orm import sessionmaker, relationship, Session
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import create_engine, select
+from sqlalchemy.orm import sessionmaker, Session
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-from sqlalchemy.orm import joinedload
 from collections import Counter
 from datetime import datetime, timedelta
 from typing import Optional
 import pandas as pd
-# from script import get_links_for_titles, get_links_with_api
 import numpy as np
 import random
+import os
+from ..models import Base, User, Show, MoviesWatched, MoviesLiked
 
 router = APIRouter(prefix="/services", tags=["services"])
 
-DATABASE_URL = 'sqlite:///../database/database.db'
+# Get the absolute path to the database file
+current_dir = os.path.dirname(os.path.abspath(__file__))
+backend_dir = os.path.abspath(os.path.join(current_dir, '..', '..'))
+db_path = os.path.join(backend_dir, 'database.db')
+# Ensure the path uses forward slashes for SQLite
+db_path = db_path.replace('\\', '/')
+DATABASE_URL = f"sqlite:///{db_path}"
 
-Base = declarative_base()
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autoflush=False, autocommit=False, bind=engine)
-db = SessionLocal()
 
 SECRET_KEY = "cH@r@n$n3h@"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl='token')
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-def get_iso():
-    utc = datetime.utcnow()
-    return utc
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
-class User(Base):
-    __tablename__='users'
-    user_id = Column(Integer, primary_key=True, index=True)
-    username = Column(String, unique=True, index=True)
-    password = Column(String)
-    email = Column(String, unique=True)
-    date_joined = Column(Date, default=get_iso)
-
-class Show(Base):
-    __tablename__ = "shows"
-    show_id = Column(Integer, primary_key=True)
-    title = Column(String)
-    description = Column(String)
-    director = Column(String)
-    rating = Column(String)
-    release_year = Column(Integer)
-    duration = Column(String)
-    listed_in = Column(String)
-    country = Column(String)
-    date_added = Column(String)
-
-class MoviesWatched(Base):
-    __tablename__ = "movies_watched"
-    watched_id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.user_id"))
-    show_id = Column(Integer, ForeignKey("shows.show_id"))
-    watch_date = Column(DateTime, default=get_iso)
-
-class MoviesLiked(Base):
-    __tablename__ = "movies_liked"
-    liked_id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.user_id"))
-    show_id = Column(Integer, ForeignKey("shows.show_id"))
-    liked_date = Column(DateTime, default=get_iso)
-
-def get_current_user(token: str = Depends(oauth2_scheme)):
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     credentials_exception = HTTPException(
         status_code = status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        payload = jwt.decode(token, key=SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get('sub')
         if username is None:
             raise credentials_exception
-        return db.query(User).filter(User.username==username).first()
+        user = db.query(User).filter(User.username==username).first()
+        if user is None:
+            raise credentials_exception
+        return user
     except JWTError:
         raise credentials_exception
 
-def get_recommendations(current_user: User, preference: str):
+def get_recommendations(current_user: User, preference: str, db: Session):
     if preference == "liked":
         preference_movies = db.query(MoviesLiked).filter(MoviesLiked.user_id == current_user.user_id).all()
         if not preference_movies:
@@ -164,71 +138,69 @@ def get_recommendations(current_user: User, preference: str):
 
     return {"recommendations": recommendations}
 
-
 @router.get('/get-liked-recommendations', status_code=200)
-def liked_recommendations(current_user: User = Depends(get_current_user)):
-    liked_rec = get_recommendations(current_user, "liked")["recommendations"]
-    
-    # titles = []
-    # for i in range(len(liked_rec)):
-    #     titles.append(liked_rec[i]['title'])
-    # image_urls = get_links_with_api(titles)
-    # recommendations = []
-    # for i in range(len(liked_rec)):
-    #     liked_rec[i]["image_url"] = image_urls[i]
-    #     if image_urls[i]:
-    #         recommendations.append(liked_rec[i])
-    
-    return liked_rec
+def liked_recommendations(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    try:
+        liked_rec = get_recommendations(current_user, "liked", db)["recommendations"]
+        return liked_rec
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get('/get-watched-recommendations', status_code=200)
-def watched_recommendations(current_user: User = Depends(get_current_user)):
-    return get_recommendations(current_user, "watched")
+def watched_recommendations(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    try:
+        return get_recommendations(current_user, "watched", db)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get('/get-timed-recommendations')
-def get_time_and_year_trend_recommendations(current_user: User = Depends(get_current_user)):
-    watched_movies = (
-        db.query(MoviesWatched, Show)
-        .join(Show, MoviesWatched.show_id == Show.show_id)
-        .filter(MoviesWatched.user_id == current_user.user_id)
-        .all()
-    )
+def get_time_and_year_trend_recommendations(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    try:
+        watched_movies = (
+            db.query(MoviesWatched, Show)
+            .join(Show, MoviesWatched.show_id == Show.show_id)
+            .filter(MoviesWatched.user_id == current_user.user_id)
+            .all()
+        )
 
-    if not watched_movies:
-        raise HTTPException(status_code=404, detail="No watched movies found for this user.")
+        if not watched_movies:
+            raise HTTPException(status_code=404, detail="No watched movies found for this user.")
 
-    all_movies = db.query(Show).all()
-    all_movies_df = pd.DataFrame([{
-        "show_id": movie.show_id,
-        "title": movie.title,
-        "description": movie.description,
-        "director": movie.director,
-        "rating": movie.rating,
-        "release_year": movie.release_year,
-        "duration": movie.duration,
-        "listed_in": movie.listed_in,
-        "country": movie.country
-    } for movie in all_movies])
+        all_movies = db.query(Show).all()
+        all_movies_df = pd.DataFrame([{
+            "show_id": movie.show_id,
+            "title": movie.title,
+            "description": movie.description,
+            "director": movie.director,
+            "rating": movie.rating,
+            "release_year": movie.release_year,
+            "duration": movie.duration,
+            "listed_in": movie.listed_in,
+            "country": movie.country
+        } for movie in all_movies])
 
-    if all_movies_df.empty:
-        raise HTTPException(status_code=404, detail="No movies found in the database.")
+        if all_movies_df.empty:
+            raise HTTPException(status_code=404, detail="No movies found in the database.")
 
-    watched_years = [entry.Show.release_year for entry in watched_movies if entry.Show.release_year]
-    if not watched_years:
-        raise HTTPException(status_code=404, detail="No release years available for watched movies.")
+        watched_years = [entry.Show.release_year for entry in watched_movies if entry.Show.release_year]
+        if not watched_years:
+            raise HTTPException(status_code=404, detail="No release years available for watched movies.")
 
-    year_counter = Counter(watched_years)
-    most_common_years = year_counter.most_common(3)
-    year_range = (min(watched_years), max(watched_years))
+        year_counter = Counter(watched_years)
+        most_common_years = year_counter.most_common(3)
+        year_range = (min(watched_years), max(watched_years))
 
-    recommendations = all_movies_df[
-        (all_movies_df['release_year'].between(year_range[0], year_range[1])) &
-        (~all_movies_df['show_id'].isin([entry.Show.show_id for entry in watched_movies]))
-    ].copy()
+        recommendations = all_movies_df[
+            (all_movies_df['release_year'].between(year_range[0], year_range[1])) &
+            (~all_movies_df['show_id'].isin([entry.Show.show_id for entry in watched_movies]))
+        ].copy()
 
-    recommendations['year_score'] = recommendations['release_year'].apply(
-        lambda year: sum([abs(year - y) <= 2 for y, _ in most_common_years])
-    )
-    recommendations = recommendations.sort_values(by='year_score', ascending=False).head(10)
+        def calculate_year_score(year):
+            return sum([abs(year - y) <= 2 for y, _ in most_common_years])
 
-    return {"recommendations": recommendations.to_dict(orient="records")}
+        recommendations['year_score'] = recommendations['release_year'].apply(calculate_year_score)
+        recommendations = recommendations.sort_values(by='year_score', ascending=False).head(10)
+
+        return {"recommendations": recommendations.to_dict(orient="records")}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

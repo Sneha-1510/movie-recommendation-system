@@ -2,16 +2,16 @@ from fastapi import FastAPI, HTTPException, Depends, status, APIRouter
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, Date, DateTime
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, relationship, Session
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.sql import not_
 from datetime import datetime, timedelta
 from typing import Optional
 from pydantic import BaseModel
-# from script import get_links_for_titles, get_links_with_api
 import os
 import random
+from ..models import Base, User, Show, MoviesWatched, MoviesLiked
+# from script import get_links_for_titles, get_links_with_api
 
 router = APIRouter(prefix="/user", tags=["user"])
 
@@ -19,9 +19,10 @@ router = APIRouter(prefix="/user", tags=["user"])
 current_dir = os.path.dirname(os.path.abspath(__file__))
 backend_dir = os.path.abspath(os.path.join(current_dir, '..', '..'))
 db_path = os.path.join(backend_dir, 'database.db')
+# Ensure the path uses forward slashes for SQLite
+db_path = db_path.replace('\\', '/')
 DATABASE_URL = f"sqlite:///{db_path}"
 
-Base = declarative_base()
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 db = SessionLocal()
@@ -43,39 +44,6 @@ def get_db():
         yield db
     finally:
         db.close()
-
-class User(Base):
-    __tablename__ = "users"
-    user_id = Column(Integer, primary_key=True, index=True)
-    username = Column(String, unique=True, index=True)
-    password = Column(String)
-    email = Column(String, unique=True)
-    date_joined = Column(Date, default=get_iso)
-
-class Show(Base):
-    __tablename__ = "shows"
-    show_id = Column(Integer, primary_key=True)
-    title = Column(String)
-    listed_in = Column(String)
-    release_year = Column(Integer)
-    rating = Column(String)
-    date_added = Column(String)
-    description = Column(String)
-
-class MoviesWatched(Base):
-    __tablename__ = "movies_watched"
-    watched_id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.user_id"))
-    show_id = Column(Integer, ForeignKey("shows.show_id"))
-    watch_date = Column(DateTime, default=get_iso)
-
-class MoviesLiked(Base):
-    __tablename__ = "movies_liked"
-    liked_id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.user_id"))
-    show_id = Column(Integer, ForeignKey("shows.show_id"))
-    liked_date = Column(DateTime, default=get_iso)
-
 
 class UserUpdate(BaseModel):
     email: str
@@ -103,7 +71,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-def get_current_user(token: str = Depends(oauth2_scheme)):
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -114,7 +82,10 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         username: str = payload.get("sub")
         if username is None:
             raise credentials_exception
-        return db.query(User).filter(User.username == username).first()
+        user = db.query(User).filter(User.username == username).first()
+        if user is None:
+            raise credentials_exception
+        return user
     except JWTError:
         raise credentials_exception
 
@@ -163,16 +134,16 @@ def all_movies(current_user: User = Depends(get_current_user), db: Session = Dep
 
 @router.get("/get-watched/")
 def get_watched(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    watched = db.query(MoviesWatched).filter(current_user.user_id == MoviesWatched.user_id).all()
+    watched = db.query(MoviesWatched).filter(MoviesWatched.user_id == current_user.user_id).all()
     return watched
 
 @router.get("/get-liked/")
 def get_liked(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    liked = db.query(MoviesLiked).filter(current_user.user_id == MoviesLiked.user_id).all()
+    liked = db.query(MoviesLiked).filter(MoviesLiked.user_id == current_user.user_id).all()
     return liked
 
 @router.get("/get-genre-{genre}")
-def get_by_genre(genre: str,current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def get_by_genre(genre: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     watched_show_ids = db.query(MoviesWatched.show_id).filter(
         MoviesWatched.user_id == current_user.user_id
     ).subquery()
@@ -181,19 +152,7 @@ def get_by_genre(genre: str,current_user: User = Depends(get_current_user), db: 
         Show.listed_in.ilike(f"%{genre}%"),
         not_(Show.show_id.in_(watched_show_ids))
     ).all()
-    # titles = []
-    # movies = []
-    # for show in shows[:30]:
-    #     titles.append(show.title)
-    # image_urls = get_links_with_api(titles)
-    # for i, show in enumerate(shows[:20]):
-    #     movie_data = show.__dict__.copy()
-    #     if image_urls[i]:
-    #         movie_data["image_url"] = image_urls[i]
-    #         movies.append(movie_data)
-    # return movies
     return shows[:20]
-
 
 @router.get("/get-random-movies/")
 def get_random_movies():
